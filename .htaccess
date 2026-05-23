@@ -1,0 +1,39 @@
+# ============================================================
+# .htaccess — Apache web server configuration
+# ============================================================
+# SETUP PURPOSE:
+#   This file configures Apache URL routing so the app works
+#   correctly on shared hosting / cPanel environments (where
+#   phpMyAdmin is typically found).
+#
+# WHAT IT DOES:
+#   1. Enables mod_rewrite for clean URL routing.
+#   2. Disables directory listing (visitors can't browse folders).
+#   3. Routes ALL requests that don't match a real file or directory
+#      through api/index.php — this is the front controller pattern.
+#   4. Sets the correct base for the rewrite rules (project root).
+#
+# HOSTING SETUP NOTE:
+#   - Upload this file to the same directory as index.php on your server.
+#   - Make sure mod_rewrite is enabled (it is on most cPanel hosts).
+#   - If hosted in a subfolder (e.g. /crm/), adjust RewriteBase accordingly.
+#   - For HTTPS enforcement, uncomment the redirect block below.
+#
+# HTTPS REDIRECT (uncomment when SSL certificate is active on your domain):
+#   RewriteCond %{HTTPS} off
+#   RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+# ============================================================
+
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # Serve real files and directories directly
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+
+    # Everything else goes through the front controller
+    RewriteRule ^(.*)$ api/index.php [QSA,L]
+</IfModule>

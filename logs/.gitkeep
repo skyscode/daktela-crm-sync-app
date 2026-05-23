@@ -1,0 +1,6 @@
+# logs/.gitkeep
+# ==============
+# Keeps the logs/ directory tracked by git.
+# The actual log files (app.log) are excluded via .gitignore.
+# The web server process must have write permission to this directory.
+# On Linux: chmod 775 logs/
