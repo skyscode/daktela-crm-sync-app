@@ -8,7 +8,7 @@ $dotenv->load();
 
 // These keys must exist in .env — fail fast rather than silently using null values.
 $dotenv->required([
-    'DAKTELA_INSTANCE',
+    'DAKTELA_API_URL',
     'DAKTELA_ACCESS_TOKEN',
     'DB_HOST',
     'DB_NAME',
@@ -18,7 +18,7 @@ $dotenv->required([
 
 return [
     'daktela' => [
-        'instance'                  => $_ENV['DAKTELA_INSTANCE'],
+        'api_url'                   => $_ENV['DAKTELA_API_URL'],
         'access_token'              => $_ENV['DAKTELA_ACCESS_TOKEN'],
         // Endpoint paths default to Daktela's standard names if not overridden in .env
         'contacts_endpoint'         => $_ENV['DAKTELA_CONTACTS_ENDPOINT']         ?? 'CrmContacts',
