@@ -3,7 +3,8 @@
 declare(strict_types=1);
 
 namespace App\Domain;
-
+// Represents a Contact as a plain PHP object
+// Fields: id, external_id, title, description, status_id, created_at, updated_at, synced_at
 class Contact
 {
     public function __construct(
@@ -11,7 +12,7 @@ class Contact
         public readonly string  $externalId,
         public readonly string  $title,
         public readonly ?string $description,
-        public readonly ?int    $statusId,
+        public readonly int    $statusId,
         public readonly string  $createdAt,
         public readonly string  $updatedAt,
         public readonly string  $syncedAt,
@@ -24,7 +25,7 @@ class Contact
             externalId:  (string) $data['external_id'],
             title:       (string) $data['title'],
             description: isset($data['description']) ? (string) $data['description'] : null,
-            statusId:    isset($data['status_id']) ? (int) $data['status_id'] : null,
+            statusId:    (int) $data['status_id'],
             createdAt:   (string) $data['created_at'],
             updatedAt:   (string) $data['updated_at'],
             syncedAt:    (string) $data['synced_at'],
