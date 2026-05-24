@@ -49,7 +49,7 @@ class ContactRepository
         $stmt->execute(['external_id' => $externalId]);
         $row = $stmt->fetch(\PDO::FETCH_ASSOC);
 
-        return $row ? Contact::fromArray($row) : null;
+        return $row ? Contact::fromDbRow($row) : null;
     }
 
     public function findAll(int $page = 1, int $limit = 20, ?int $statusId = null): array
@@ -67,7 +67,7 @@ class ContactRepository
         $stmt->execute();
 
         return array_map(
-            fn(array $row) => Contact::fromArray($row),
+            fn(array $row) => Contact::fromDbRow($row),
             $stmt->fetchAll(\PDO::FETCH_ASSOC)
         );
     }

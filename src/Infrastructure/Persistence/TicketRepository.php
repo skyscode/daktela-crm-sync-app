@@ -50,7 +50,7 @@ class TicketRepository
         $stmt->execute(['external_id' => $externalId]);
         $row = $stmt->fetch(\PDO::FETCH_ASSOC);
 
-        return $row ? Ticket::fromArray($row) : null;
+        return $row ? Ticket::fromDbRow($row) : null;
     }
 
     public function findAll(int $page = 1, int $limit = 20, ?int $statusId = null): array
@@ -68,7 +68,7 @@ class TicketRepository
         $stmt->execute();
 
         return array_map(
-            fn(array $row) => Ticket::fromArray($row),
+            fn(array $row) => Ticket::fromDbRow($row),
             $stmt->fetchAll(\PDO::FETCH_ASSOC)
         );
     }
