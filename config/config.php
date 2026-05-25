@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-// Load .env into $_ENV. Looks for .env in the project root (one level up from config/).
+// Load .env if present (local dev). On Railway, env vars are injected directly — no .env file exists.
 $dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/..');
-$dotenv->load();
+$dotenv->safeLoad();
 
-// These keys must exist in .env — fail fast rather than silently using null values.
+// These keys must exist either in .env or as real environment variables — fail fast if missing.
 $dotenv->required([
     'DAKTELA_API_URL',
     'DAKTELA_ACCESS_TOKEN',
