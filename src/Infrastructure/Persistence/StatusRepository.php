@@ -14,9 +14,9 @@ class StatusRepository
 {
     private \PDO $pdo;
 
-    public function __construct()
+    public function __construct(array $config = [])
     {
-        $this->pdo = Database::getInstance()->getConnection();
+        $this->pdo = Database::connection($config);
     }
 
     public function upsert(Status $status): void

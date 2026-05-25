@@ -24,9 +24,9 @@ $logger->pushHandler(new StreamHandler('php://stdout', \Monolog\Level::Info));
 
 $syncService = new SyncService(
     new DaktelaApiClient($config['daktela']),
-    new ContactRepository(),
-    new TicketRepository(),
-    new StatusRepository(),
+    new ContactRepository($config['db']),
+    new TicketRepository($config['db']),
+    new StatusRepository($config['db']),
     $logger,
 );
 

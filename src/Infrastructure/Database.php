@@ -12,7 +12,7 @@ use PDO;
 class Database {
     private static ?PDO $instance = null;
 
-    public static function connection(array $config): PDO
+    public static function connection(array $config = []): PDO
     {
         if (self::$instance === null) {
             $dsn = sprintf(

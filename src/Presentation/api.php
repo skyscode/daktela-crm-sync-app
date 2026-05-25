@@ -17,9 +17,9 @@ use App\Presentation\Controllers\ContactController;
 use App\Presentation\Controllers\TicketController;
 use App\Presentation\Controllers\StatusController;
 
-$contactController = new ContactController(new ContactRepository());
-$ticketController  = new TicketController(new TicketRepository());
-$statusController  = new StatusController(new StatusRepository());
+$contactController = new ContactController(new ContactRepository($config['db']));
+$ticketController  = new TicketController(new TicketRepository($config['db']));
+$statusController  = new StatusController(new StatusRepository($config['db']));
 
 $router = new Router();
 
