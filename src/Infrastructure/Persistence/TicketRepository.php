@@ -44,6 +44,27 @@ class TicketRepository
         ]);
     }
 
+    public function findById(int $id): ?Ticket
+    {
+        $stmt = $this->pdo->prepare("SELECT * FROM tickets WHERE id = :id");
+        $stmt->execute(['id' => $id]);
+        $row = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+        return $row ? Ticket::fromDbRow($row) : null;
+    }
+
+    public function count(?int $statusId = null): int
+    {
+        $where = $statusId !== null ? "WHERE status_id = :status_id" : "";
+        $stmt  = $this->pdo->prepare("SELECT COUNT(*) FROM tickets {$where}");
+        if ($statusId !== null) {
+            $stmt->bindValue('status_id', $statusId, \PDO::PARAM_INT);
+        }
+        $stmt->execute();
+
+        return (int) $stmt->fetchColumn();
+    }
+
     public function findByExternalId(string $externalId): ?Ticket
     {
         $stmt = $this->pdo->prepare("SELECT * FROM tickets WHERE external_id = :external_id");

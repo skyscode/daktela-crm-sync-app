@@ -42,6 +42,13 @@ class StatusRepository
         ]);
     }
 
+    public function count(): int
+    {
+        $stmt = $this->pdo->query("SELECT COUNT(*) FROM statuses");
+
+        return (int) $stmt->fetchColumn();
+    }
+
     public function findByExternalId(string $externalId): ?Status
     {
         $stmt = $this->pdo->prepare("SELECT * FROM statuses WHERE external_id = :external_id");

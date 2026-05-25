@@ -43,6 +43,27 @@ class ContactRepository
         ]);
     }
 
+    public function findById(int $id): ?Contact
+    {
+        $stmt = $this->pdo->prepare("SELECT * FROM contacts WHERE id = :id");
+        $stmt->execute(['id' => $id]);
+        $row = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+        return $row ? Contact::fromDbRow($row) : null;
+    }
+
+    public function count(?int $statusId = null): int
+    {
+        $where = $statusId !== null ? "WHERE status_id = :status_id" : "";
+        $stmt  = $this->pdo->prepare("SELECT COUNT(*) FROM contacts {$where}");
+        if ($statusId !== null) {
+            $stmt->bindValue('status_id', $statusId, \PDO::PARAM_INT);
+        }
+        $stmt->execute();
+
+        return (int) $stmt->fetchColumn();
+    }
+
     public function findByExternalId(string $externalId): ?Contact
     {
         $stmt = $this->pdo->prepare("SELECT * FROM contacts WHERE external_id = :external_id");
