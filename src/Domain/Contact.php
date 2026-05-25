@@ -6,7 +6,7 @@ namespace App\Domain;
 
 // Represents a Contact as a plain PHP object
 // Fields: id, external_id, title, description, status_id, created_at, updated_at, synced_at
-class Contact
+class Contact implements \JsonSerializable
 {
     public function __construct(
         public readonly ?int    $id,
@@ -18,6 +18,20 @@ class Contact
         public readonly string  $updatedAt,
         public readonly string  $syncedAt,
     ) {}
+
+    public function jsonSerialize(): array
+    {
+        return [
+            'id'          => $this->id,
+            'external_id' => $this->externalId,
+            'title'       => $this->title,
+            'description' => $this->description,
+            'status_id'   => $this->statusId,
+            'created_at'  => $this->createdAt,
+            'updated_at'  => $this->updatedAt,
+            'synced_at'   => $this->syncedAt,
+        ];
+    }
 
     public static function fromApiResponse(array $data, string $syncedAt): self
     {

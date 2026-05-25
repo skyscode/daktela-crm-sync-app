@@ -6,7 +6,7 @@ namespace App\Domain;
 
 // Represents a Status as a plain PHP object.
 // Fields: id, external_id, title, description, created_at, updated_at, synced_at
-class Status
+class Status implements \JsonSerializable
 {
     public function __construct(
         public readonly ?int    $id,
@@ -17,6 +17,19 @@ class Status
         public readonly string  $updatedAt,
         public readonly string  $syncedAt,
     ) {}
+
+    public function jsonSerialize(): array
+    {
+        return [
+            'id'          => $this->id,
+            'external_id' => $this->externalId,
+            'title'       => $this->title,
+            'description' => $this->description,
+            'created_at'  => $this->createdAt,
+            'updated_at'  => $this->updatedAt,
+            'synced_at'   => $this->syncedAt,
+        ];
+    }
 
     public static function fromApiResponse(array $data, string $syncedAt): self
     {
