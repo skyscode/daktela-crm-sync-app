@@ -2,6 +2,8 @@ FROM dunglas/frankenphp:php8.2.31-bookworm
 
 RUN docker-php-ext-install pdo_mysql
 
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
 WORKDIR /app
 COPY . .
 
