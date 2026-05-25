@@ -1,0 +1,3 @@
+{
+  "aptPackages": ["php8.2-mysql"]
+}
