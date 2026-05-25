@@ -22,7 +22,10 @@
         }
     },
     "scripts": {
-        "test": "./vendor/bin/phpunit"
+        "test": "./vendor/bin/phpunit",
+        "post-install-cmd": [
+            "docker-php-ext-install pdo_mysql 2>/dev/null || true"
+        ]
     },
     "config": {
         "optimize-autoloader": true,
