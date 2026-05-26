@@ -58,6 +58,16 @@ class StatusRepository
         return $row ? Status::fromDbRow($row) : null;
     }
 
+    public function findAllFlat(): array
+    {
+        $stmt = $this->pdo->query("SELECT id, external_id FROM statuses");
+        $map  = [];
+        foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+            $map[$row['external_id']] = (int) $row['id'];
+        }
+        return $map;
+    }
+
     public function findAll(int $page = 1, int $limit = 20): array
     {
         $offset = ($page - 1) * $limit;

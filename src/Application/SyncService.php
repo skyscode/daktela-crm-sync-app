@@ -80,13 +80,15 @@ class SyncService
     private function syncTickets(string $syncedAt): void
     {
         $this->logger->info('Syncing tickets');
-        $count = 0;
+        $count     = 0;
+        $statusMap = $this->statuses->findAllFlat();
 
         try {
             $items = $this->apiClient->getTickets();
 
             foreach ($items as $item) {
-                $this->tickets->upsert(Ticket::fromApiResponse($item, $syncedAt));
+                $statusId = isset($item['status']) ? ($statusMap[$item['status']] ?? null) : null;
+                $this->tickets->upsert(Ticket::fromApiResponse($item, $syncedAt, $statusId));
                 $count++;
             }
 
