@@ -17,6 +17,10 @@ use App\Presentation\Controllers\ContactController;
 use App\Presentation\Controllers\TicketController;
 use App\Presentation\Controllers\StatusController;
 
+// Run schema migrations on every boot — safe because all statements use IF NOT EXISTS
+$pdo = App\Infrastructure\Database::connection($config['db']);
+$pdo->exec(file_get_contents(__DIR__ . '/../../database/scheme.sql'));
+
 $contactController = new ContactController(new ContactRepository($config['db']));
 $ticketController  = new TicketController(new TicketRepository($config['db']));
 $statusController  = new StatusController(new StatusRepository($config['db']));
