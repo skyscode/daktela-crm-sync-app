@@ -47,7 +47,7 @@ $router->add('GET', '/api/debug', function () use ($config) {
     ]);
 
     try {
-        $response = $client->get('contacts.json', [
+        $response = $client->get('tickets.json', [
             'query' => ['accessToken' => $config['daktela']['access_token'], 'take' => 3, 'skip' => 0],
         ]);
         $body = json_decode($response->getBody()->getContents(), true);
