@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS `statuses` (
   `external_id` VARCHAR(255) NOT NULL,
   `title`       VARCHAR(500) NOT NULL,
   `description` TEXT NULL,
-  `type`        ENUM('contact','ticket') NULL,
+  `type`        ENUM('contact','ticket') NOT NULL,
   `created_at`  DATETIME NOT NULL,
   `updated_at`  DATETIME NOT NULL,
   `synced_at`   DATETIME NOT NULL,

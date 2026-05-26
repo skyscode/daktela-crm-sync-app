@@ -16,13 +16,16 @@ use Psr\Log\LoggerInterface;
 /**
  * Orchestrates one full sync cycle: fetch from Daktela API → upsert into DB.
  *
- * Daktela data model notes (discovered from live API):
- *  - /statuses  → call-outcome statuses; synced as type='contact'
- *  - /contacts  → CRM contacts; Daktela has no direct status FK on contacts,
- *                 so we assign the first available contact status as a default.
- *  - /tickets   → support tickets; workflow status comes from the 'stage' field
- *                 (OPEN, CLOSED, etc.); we create type='ticket' statuses from
- *                 unique stage values on-the-fly during the ticket sync.
+ * Daktela data model mapping (discovered from live API):
+ *  - /statuses    → master list of call-outcome statuses; all synced as type='contact'.
+ *  - /crmRecords  → CRM workflow records, mapped to the assessment's "Contact" entity.
+ *                   Status resolution: prefer crmRecord.status.name; fall back to
+ *                   synthetic 'crm_record_stage_<stage>' (type='contact').
+ *  - /tickets     → support tickets. Status resolution: prefer ticket.statuses[0].name;
+ *                   fall back to synthetic 'ticket_stage_<stage>' (type='ticket').
+ *
+ * The /contacts endpoint is intentionally NOT used: it carries address-book identity
+ * records without a workflow status field. /crmRecords is the status-bearing CRM object.
  */
 class SyncService
 {
@@ -40,10 +43,7 @@ class SyncService
         $syncedAt = (new \DateTimeImmutable())->format('Y-m-d H:i:s');
 
         $this->syncContactStatuses($syncedAt);
-
-        $contactStatusMap = $this->statuses->mapByType('contact');
-        $this->syncContacts($syncedAt, $contactStatusMap);
-
+        $this->syncContacts($syncedAt);
         $this->syncTickets($syncedAt);
 
         $this->logger->info('Sync cycle completed');
@@ -68,23 +68,28 @@ class SyncService
         }
     }
 
-    private function syncContacts(string $syncedAt, array $contactStatusMap): void
+    private function syncContacts(string $syncedAt): void
     {
-        $this->logger->info('Syncing contacts');
-        $count = 0;
-
-        $defaultStatusId = !empty($contactStatusMap) ? (int) reset($contactStatusMap) : null;
-
-        if ($defaultStatusId === null) {
-            $this->logger->error('No contact statuses available — skipping contact sync');
-            return;
-        }
+        $this->logger->info('Syncing contacts from crmRecords');
+        $count     = 0;
+        $statusMap = $this->statuses->mapByType('contact');
 
         try {
-            $items = $this->apiClient->getContacts();
+            $items = $this->apiClient->getCrmRecords();
 
             foreach ($items as $item) {
-                $this->contacts->upsert(Contact::fromApiResponse($item, $syncedAt, $defaultStatusId));
+                $statusExternalId = $this->resolveCrmRecordStatusExternalId($item);
+
+                if (!isset($statusMap[$statusExternalId])) {
+                    $this->statuses->upsert(Status::fromApiResponse([
+                        'name'        => $statusExternalId,
+                        'title'       => $item['status']['title'] ?? ucwords(str_replace('_', ' ', $statusExternalId)),
+                        'description' => $item['status']['description'] ?? null,
+                    ], $syncedAt, 'contact'));
+                    $statusMap[$statusExternalId] = $this->statuses->findByExternalId($statusExternalId)->id;
+                }
+
+                $this->contacts->upsert(Contact::fromApiResponse($item, $syncedAt, (int) $statusMap[$statusExternalId]));
                 $count++;
             }
 
@@ -94,30 +99,42 @@ class SyncService
         }
     }
 
+    private function resolveCrmRecordStatusExternalId(array $record): string
+    {
+        if (!empty($record['status']['name'])) {
+            return (string) $record['status']['name'];
+        }
+
+        if (!empty($record['stage'])) {
+            return 'crm_record_stage_' . strtolower($record['stage']);
+        }
+
+        throw new \RuntimeException("CRM record {$record['name']} has no status or stage");
+    }
+
     private function syncTickets(string $syncedAt): void
     {
         $this->logger->info('Syncing tickets');
-        $count    = 0;
-        $stageMap = $this->statuses->mapByType('ticket');
+        $count     = 0;
+        $statusMap = $this->statuses->mapByType('ticket');
 
         try {
             $items = $this->apiClient->getTickets();
 
             foreach ($items as $item) {
-                $stage    = (string) ($item['stage'] ?? 'OPEN');
-                $stageKey = 'stage_' . strtolower($stage);
+                $statusExternalId = $this->resolveTicketStatusExternalId($item);
 
-                if (!isset($stageMap[$stageKey])) {
+                if (!isset($statusMap[$statusExternalId])) {
+                    $embedded = $item['statuses'][0] ?? null;
                     $this->statuses->upsert(Status::fromApiResponse([
-                        'name'        => $stageKey,
-                        'title'       => ucwords(strtolower(str_replace('_', ' ', $stage))),
-                        'description' => null,
+                        'name'        => $statusExternalId,
+                        'title'       => $embedded['title'] ?? ucwords(str_replace('_', ' ', $statusExternalId)),
+                        'description' => $embedded['description'] ?? null,
                     ], $syncedAt, 'ticket'));
-
-                    $stageMap[$stageKey] = $this->statuses->findByExternalId($stageKey)->id;
+                    $statusMap[$statusExternalId] = $this->statuses->findByExternalId($statusExternalId)->id;
                 }
 
-                $this->tickets->upsert(Ticket::fromApiResponse($item, $syncedAt, (int) $stageMap[$stageKey]));
+                $this->tickets->upsert(Ticket::fromApiResponse($item, $syncedAt, (int) $statusMap[$statusExternalId]));
                 $count++;
             }
 
@@ -125,5 +142,18 @@ class SyncService
         } catch (\Throwable $e) {
             $this->logger->error('Failed to sync tickets: ' . $e->getMessage());
         }
+    }
+
+    private function resolveTicketStatusExternalId(array $ticket): string
+    {
+        if (!empty($ticket['statuses'][0]['name'])) {
+            return (string) $ticket['statuses'][0]['name'];
+        }
+
+        if (!empty($ticket['stage'])) {
+            return 'ticket_stage_' . strtolower($ticket['stage']);
+        }
+
+        throw new \RuntimeException("Ticket {$ticket['name']} has no status or stage");
     }
 }

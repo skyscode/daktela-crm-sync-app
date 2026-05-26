@@ -24,6 +24,13 @@ class Migrator
     {
         try { $this->pdo->exec("ALTER TABLE statuses ADD COLUMN type ENUM('contact','ticket') NULL"); } catch (\PDOException $e) {}
         try { $this->pdo->exec("ALTER TABLE statuses ADD INDEX idx_statuses_type (type)"); } catch (\PDOException $e) {}
+
+        $this->pdo->exec("UPDATE statuses SET type = 'contact' WHERE type IS NULL");
+        try { $this->pdo->exec("ALTER TABLE statuses MODIFY COLUMN type ENUM('contact','ticket') NOT NULL"); } catch (\PDOException $e) {}
+
+        $this->pdo->exec("UPDATE statuses SET external_id = 'ticket_stage_open'   WHERE external_id = 'stage_open'   AND type = 'ticket'");
+        $this->pdo->exec("UPDATE statuses SET external_id = 'ticket_stage_close'  WHERE external_id = 'stage_close'  AND type = 'ticket'");
+        $this->pdo->exec("UPDATE statuses SET external_id = 'ticket_stage_closed' WHERE external_id = 'stage_closed' AND type = 'ticket'");
     }
 
     private function installTriggers(): void
