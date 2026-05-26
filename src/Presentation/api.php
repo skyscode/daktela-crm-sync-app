@@ -74,11 +74,16 @@ $router->add('POST', '/api/sync', function () use ($config) {
         $logger,
     );
 
-    $sync->run();
-
-    http_response_code(200);
-    header('Content-Type: application/json');
-    echo json_encode(['message' => 'Sync completed']);
+    try {
+        $sync->run();
+        http_response_code(200);
+        header('Content-Type: application/json');
+        echo json_encode(['message' => 'Sync completed']);
+    } catch (\Throwable $e) {
+        http_response_code(500);
+        header('Content-Type: application/json');
+        echo json_encode(['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+    }
 });
 
 $router->dispatch();
