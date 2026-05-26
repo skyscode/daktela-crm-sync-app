@@ -38,6 +38,28 @@ $router->add('GET', '/api/tickets',        [$ticketController,  'index']);
 $router->add('GET', '/api/tickets/{id}',   [$ticketController,  'show']);
 $router->add('GET', '/api/statuses',       [$statusController,  'index']);
 
+// Debug endpoint — returns raw Daktela API response to verify connectivity and response format
+$router->add('GET', '/api/debug', function () use ($config) {
+    $client = new \GuzzleHttp\Client([
+        'base_uri' => rtrim($config['daktela']['api_url'], '/') . '/',
+        'verify'   => $config['daktela']['verify_ssl'],
+        'timeout'  => 30,
+    ]);
+
+    try {
+        $response = $client->get('contacts.json', [
+            'query' => ['accessToken' => $config['daktela']['access_token'], 'take' => 3, 'skip' => 0],
+        ]);
+        $body = json_decode($response->getBody()->getContents(), true);
+    } catch (\Throwable $e) {
+        $body = ['error' => $e->getMessage()];
+    }
+
+    http_response_code(200);
+    header('Content-Type: application/json');
+    echo json_encode($body);
+});
+
 // Manual sync trigger — hits Daktela API and upserts all entities into the DB immediately
 $router->add('POST', '/api/sync', function () use ($config) {
     $logger = new Logger('sync');
