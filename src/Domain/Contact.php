@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain;
 
-// Represents a Contact as a plain PHP object
-// Fields: id, external_id, title, description, status_id, created_at, updated_at, synced_at
 class Contact implements \JsonSerializable
 {
     public function __construct(
@@ -33,14 +31,14 @@ class Contact implements \JsonSerializable
         ];
     }
 
-    public static function fromApiResponse(array $data, string $syncedAt): self
+    public static function fromApiResponse(array $data, string $syncedAt, ?int $statusId = null): self
     {
         return new self(
             id:          null,
             externalId:  (string) $data['name'],
             title:       (string) $data['title'],
             description: isset($data['description']) ? (string) $data['description'] : null,
-            statusId:    null,
+            statusId:    $statusId,
             createdAt:   (string) $data['created'],
             updatedAt:   (string) $data['edited'],
             syncedAt:    $syncedAt,

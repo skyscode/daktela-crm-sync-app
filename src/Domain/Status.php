@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain;
 
-// Represents a Status as a plain PHP object.
-// Fields: id, external_id, title, description, created_at, updated_at, synced_at
 class Status implements \JsonSerializable
 {
     public function __construct(
@@ -13,6 +11,7 @@ class Status implements \JsonSerializable
         public readonly string  $externalId,
         public readonly string  $title,
         public readonly ?string $description,
+        public readonly ?string $type,
         public readonly string  $createdAt,
         public readonly string  $updatedAt,
         public readonly string  $syncedAt,
@@ -25,19 +24,21 @@ class Status implements \JsonSerializable
             'external_id' => $this->externalId,
             'title'       => $this->title,
             'description' => $this->description,
+            'type'        => $this->type,
             'created_at'  => $this->createdAt,
             'updated_at'  => $this->updatedAt,
             'synced_at'   => $this->syncedAt,
         ];
     }
 
-    public static function fromApiResponse(array $data, string $syncedAt): self
+    public static function fromApiResponse(array $data, string $syncedAt, string $type = 'contact'): self
     {
         return new self(
             id:          null,
             externalId:  (string) $data['name'],
-            title:       (string) $data['title'],
+            title:       (string) ($data['title'] ?? $data['name']),
             description: isset($data['description']) ? (string) $data['description'] : null,
+            type:        $type,
             createdAt:   $syncedAt,
             updatedAt:   $syncedAt,
             syncedAt:    $syncedAt,
@@ -51,6 +52,7 @@ class Status implements \JsonSerializable
             externalId:  (string) $data['external_id'],
             title:       (string) $data['title'],
             description: isset($data['description']) ? (string) $data['description'] : null,
+            type:        isset($data['type']) ? (string) $data['type'] : null,
             createdAt:   (string) $data['created_at'],
             updatedAt:   (string) $data['updated_at'],
             syncedAt:    (string) $data['synced_at'],

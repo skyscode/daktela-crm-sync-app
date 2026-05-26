@@ -13,10 +13,17 @@ use App\Infrastructure\Persistence\TicketRepository;
 use App\Infrastructure\Persistence\StatusRepository;
 use Psr\Log\LoggerInterface;
 
-// Doing one full sync cycle: fetch from Daktela API → upsert into DB.
-// Called by daemon.php on every interval tick.
-// Depends on DaktelaApiClient and the three repositories (injected via constructor).
-// Logs cycle start/end, counts inserted/updated/skipped per entity, and any errors.
+/**
+ * Orchestrates one full sync cycle: fetch from Daktela API → upsert into DB.
+ *
+ * Daktela data model notes (discovered from live API):
+ *  - /statuses  → call-outcome statuses; synced as type='contact'
+ *  - /contacts  → CRM contacts; Daktela has no direct status FK on contacts,
+ *                 so we assign the first available contact status as a default.
+ *  - /tickets   → support tickets; workflow status comes from the 'stage' field
+ *                 (OPEN, CLOSED, etc.); we create type='ticket' statuses from
+ *                 unique stage values on-the-fly during the ticket sync.
+ */
 class SyncService
 {
     public function __construct(
@@ -32,14 +39,17 @@ class SyncService
         $this->logger->info('Sync cycle started');
         $syncedAt = (new \DateTimeImmutable())->format('Y-m-d H:i:s');
 
-        $this->syncStatuses($syncedAt);
-        $this->syncContacts($syncedAt);
+        $this->syncContactStatuses($syncedAt);
+
+        $contactStatusMap = $this->statuses->mapByType('contact');
+        $this->syncContacts($syncedAt, $contactStatusMap);
+
         $this->syncTickets($syncedAt);
 
         $this->logger->info('Sync cycle completed');
     }
 
-    private function syncStatuses(string $syncedAt): void
+    private function syncContactStatuses(string $syncedAt): void
     {
         $this->logger->info('Syncing statuses');
         $count = 0;
@@ -48,7 +58,7 @@ class SyncService
             $items = $this->apiClient->getStatuses();
 
             foreach ($items as $item) {
-                $this->statuses->upsert(Status::fromApiResponse($item, $syncedAt));
+                $this->statuses->upsert(Status::fromApiResponse($item, $syncedAt, 'contact'));
                 $count++;
             }
 
@@ -58,16 +68,23 @@ class SyncService
         }
     }
 
-    private function syncContacts(string $syncedAt): void
+    private function syncContacts(string $syncedAt, array $contactStatusMap): void
     {
         $this->logger->info('Syncing contacts');
         $count = 0;
+
+        $defaultStatusId = !empty($contactStatusMap) ? (int) reset($contactStatusMap) : null;
+
+        if ($defaultStatusId === null) {
+            $this->logger->error('No contact statuses available — skipping contact sync');
+            return;
+        }
 
         try {
             $items = $this->apiClient->getContacts();
 
             foreach ($items as $item) {
-                $this->contacts->upsert(Contact::fromApiResponse($item, $syncedAt));
+                $this->contacts->upsert(Contact::fromApiResponse($item, $syncedAt, $defaultStatusId));
                 $count++;
             }
 
@@ -80,15 +97,27 @@ class SyncService
     private function syncTickets(string $syncedAt): void
     {
         $this->logger->info('Syncing tickets');
-        $count     = 0;
-        $statusMap = $this->statuses->findAllFlat();
+        $count    = 0;
+        $stageMap = $this->statuses->mapByType('ticket');
 
         try {
             $items = $this->apiClient->getTickets();
 
             foreach ($items as $item) {
-                $statusId = isset($item['status']) ? ($statusMap[$item['status']] ?? null) : null;
-                $this->tickets->upsert(Ticket::fromApiResponse($item, $syncedAt, $statusId));
+                $stage    = (string) ($item['stage'] ?? 'OPEN');
+                $stageKey = 'stage_' . strtolower($stage);
+
+                if (!isset($stageMap[$stageKey])) {
+                    $this->statuses->upsert(Status::fromApiResponse([
+                        'name'        => $stageKey,
+                        'title'       => ucwords(strtolower(str_replace('_', ' ', $stage))),
+                        'description' => null,
+                    ], $syncedAt, 'ticket'));
+
+                    $stageMap[$stageKey] = $this->statuses->findByExternalId($stageKey)->id;
+                }
+
+                $this->tickets->upsert(Ticket::fromApiResponse($item, $syncedAt, (int) $stageMap[$stageKey]));
                 $count++;
             }
 

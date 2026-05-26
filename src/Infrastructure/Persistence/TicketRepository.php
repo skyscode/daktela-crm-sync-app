@@ -1,8 +1,5 @@
 <?php
 
-// MySQL implementation of ticket persistence
-// All queries against the tickets table live here
-
 declare(strict_types=1);
 
 namespace App\Infrastructure\Persistence;
@@ -44,13 +41,22 @@ class TicketRepository
         ]);
     }
 
-    public function findById(int $id): ?Ticket
+    public function findById(int $id): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM tickets WHERE id = :id");
+        $stmt = $this->pdo->prepare("
+            SELECT t.*,
+                   s.external_id AS status_external_id,
+                   s.title       AS status_title,
+                   s.description AS status_description,
+                   s.type        AS status_type
+            FROM tickets t
+            LEFT JOIN statuses s ON s.id = t.status_id
+            WHERE t.id = :id
+        ");
         $stmt->execute(['id' => $id]);
         $row = $stmt->fetch(\PDO::FETCH_ASSOC);
 
-        return $row ? Ticket::fromDbRow($row) : null;
+        return $row ? $this->formatRow($row) : null;
     }
 
     public function count(?int $statusId = null): int
@@ -61,24 +67,25 @@ class TicketRepository
             $stmt->bindValue('status_id', $statusId, \PDO::PARAM_INT);
         }
         $stmt->execute();
-
         return (int) $stmt->fetchColumn();
-    }
-
-    public function findByExternalId(string $externalId): ?Ticket
-    {
-        $stmt = $this->pdo->prepare("SELECT * FROM tickets WHERE external_id = :external_id");
-        $stmt->execute(['external_id' => $externalId]);
-        $row = $stmt->fetch(\PDO::FETCH_ASSOC);
-
-        return $row ? Ticket::fromDbRow($row) : null;
     }
 
     public function findAll(int $page = 1, int $limit = 20, ?int $statusId = null): array
     {
         $offset = ($page - 1) * $limit;
-        $where  = $statusId !== null ? "WHERE status_id = :status_id" : "";
-        $sql    = "SELECT * FROM tickets {$where} LIMIT :limit OFFSET :offset";
+        $where  = $statusId !== null ? "WHERE t.status_id = :status_id" : "";
+        $sql    = "
+            SELECT t.*,
+                   s.external_id AS status_external_id,
+                   s.title       AS status_title,
+                   s.description AS status_description,
+                   s.type        AS status_type
+            FROM tickets t
+            LEFT JOIN statuses s ON s.id = t.status_id
+            {$where}
+            ORDER BY t.id ASC
+            LIMIT :limit OFFSET :offset
+        ";
 
         $stmt = $this->pdo->prepare($sql);
         if ($statusId !== null) {
@@ -89,8 +96,28 @@ class TicketRepository
         $stmt->execute();
 
         return array_map(
-            fn(array $row) => Ticket::fromDbRow($row),
+            fn(array $row) => $this->formatRow($row),
             $stmt->fetchAll(\PDO::FETCH_ASSOC)
         );
+    }
+
+    private function formatRow(array $row): array
+    {
+        return [
+            'id'          => (int) $row['id'],
+            'external_id' => $row['external_id'],
+            'title'       => $row['title'],
+            'description' => $row['description'],
+            'status'      => $row['status_id'] ? [
+                'id'          => (int) $row['status_id'],
+                'external_id' => $row['status_external_id'],
+                'title'       => $row['status_title'],
+                'description' => $row['status_description'],
+                'type'        => $row['status_type'],
+            ] : null,
+            'created_at'  => $row['created_at'],
+            'updated_at'  => $row['updated_at'],
+            'synced_at'   => $row['synced_at'],
+        ];
     }
 }

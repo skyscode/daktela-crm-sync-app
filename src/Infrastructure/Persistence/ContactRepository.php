@@ -3,11 +3,9 @@
 declare(strict_types=1);
 
 namespace App\Infrastructure\Persistence;
+
 use App\Domain\Contact;
 use App\Infrastructure\Database;
-
-// MySQL implementation of contact persistence.
-// All queries against the contacts table live here — no SQL anywhere else.
 
 class ContactRepository
 {
@@ -43,13 +41,22 @@ class ContactRepository
         ]);
     }
 
-    public function findById(int $id): ?Contact
+    public function findById(int $id): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM contacts WHERE id = :id");
+        $stmt = $this->pdo->prepare("
+            SELECT c.*,
+                   s.external_id AS status_external_id,
+                   s.title       AS status_title,
+                   s.description AS status_description,
+                   s.type        AS status_type
+            FROM contacts c
+            LEFT JOIN statuses s ON s.id = c.status_id
+            WHERE c.id = :id
+        ");
         $stmt->execute(['id' => $id]);
         $row = $stmt->fetch(\PDO::FETCH_ASSOC);
 
-        return $row ? Contact::fromDbRow($row) : null;
+        return $row ? $this->formatRow($row) : null;
     }
 
     public function count(?int $statusId = null): int
@@ -60,24 +67,25 @@ class ContactRepository
             $stmt->bindValue('status_id', $statusId, \PDO::PARAM_INT);
         }
         $stmt->execute();
-
         return (int) $stmt->fetchColumn();
-    }
-
-    public function findByExternalId(string $externalId): ?Contact
-    {
-        $stmt = $this->pdo->prepare("SELECT * FROM contacts WHERE external_id = :external_id");
-        $stmt->execute(['external_id' => $externalId]);
-        $row = $stmt->fetch(\PDO::FETCH_ASSOC);
-
-        return $row ? Contact::fromDbRow($row) : null;
     }
 
     public function findAll(int $page = 1, int $limit = 20, ?int $statusId = null): array
     {
         $offset = ($page - 1) * $limit;
-        $where  = $statusId !== null ? "WHERE status_id = :status_id" : "";
-        $sql    = "SELECT * FROM contacts {$where} LIMIT :limit OFFSET :offset";
+        $where  = $statusId !== null ? "WHERE c.status_id = :status_id" : "";
+        $sql    = "
+            SELECT c.*,
+                   s.external_id AS status_external_id,
+                   s.title       AS status_title,
+                   s.description AS status_description,
+                   s.type        AS status_type
+            FROM contacts c
+            LEFT JOIN statuses s ON s.id = c.status_id
+            {$where}
+            ORDER BY c.id ASC
+            LIMIT :limit OFFSET :offset
+        ";
 
         $stmt = $this->pdo->prepare($sql);
         if ($statusId !== null) {
@@ -88,8 +96,28 @@ class ContactRepository
         $stmt->execute();
 
         return array_map(
-            fn(array $row) => Contact::fromDbRow($row),
+            fn(array $row) => $this->formatRow($row),
             $stmt->fetchAll(\PDO::FETCH_ASSOC)
         );
+    }
+
+    private function formatRow(array $row): array
+    {
+        return [
+            'id'          => (int) $row['id'],
+            'external_id' => $row['external_id'],
+            'title'       => $row['title'],
+            'description' => $row['description'],
+            'status'      => $row['status_id'] ? [
+                'id'          => (int) $row['status_id'],
+                'external_id' => $row['status_external_id'],
+                'title'       => $row['status_title'],
+                'description' => $row['status_description'],
+                'type'        => $row['status_type'],
+            ] : null,
+            'created_at'  => $row['created_at'],
+            'updated_at'  => $row['updated_at'],
+            'synced_at'   => $row['synced_at'],
+        ];
     }
 }

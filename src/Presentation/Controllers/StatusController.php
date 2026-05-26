@@ -15,9 +15,10 @@ class StatusController
     {
         $page  = max(1, (int) ($_GET['page']  ?? 1));
         $limit = min(100, max(1, (int) ($_GET['limit'] ?? 20)));
+        $type  = isset($_GET['type']) && in_array($_GET['type'], ['contact', 'ticket']) ? $_GET['type'] : null;
 
-        $items = $this->repo->findAll($page, $limit);
-        $total = $this->repo->count();
+        $items = $this->repo->findAll($page, $limit, $type);
+        $total = $this->repo->count($type);
 
         $this->json([
             'data' => $items,
