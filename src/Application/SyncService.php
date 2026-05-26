@@ -37,19 +37,21 @@ class SyncService
         private readonly LoggerInterface   $logger,
     ) {}
 
-    public function run(): void
+    public function run(): array
     {
         $this->logger->info('Sync cycle started');
         $syncedAt = (new \DateTimeImmutable())->format('Y-m-d H:i:s');
 
-        $this->syncContactStatuses($syncedAt);
-        $this->syncContacts($syncedAt);
-        $this->syncTickets($syncedAt);
+        $results = [];
+        $results['statuses']  = $this->syncContactStatuses($syncedAt);
+        $results['contacts']  = $this->syncContacts($syncedAt);
+        $results['tickets']   = $this->syncTickets($syncedAt);
 
         $this->logger->info('Sync cycle completed');
+        return $results;
     }
 
-    private function syncContactStatuses(string $syncedAt): void
+    private function syncContactStatuses(string $syncedAt): array
     {
         $this->logger->info('Syncing statuses');
         $count = 0;
@@ -63,12 +65,14 @@ class SyncService
             }
 
             $this->logger->info("Statuses synced: {$count}");
+            return ['count' => $count, 'error' => null];
         } catch (\Throwable $e) {
             $this->logger->error('Failed to sync statuses: ' . $e->getMessage());
+            return ['count' => $count, 'error' => $e->getMessage()];
         }
     }
 
-    private function syncContacts(string $syncedAt): void
+    private function syncContacts(string $syncedAt): array
     {
         $this->logger->info('Syncing contacts from crmRecords');
         $count     = 0;
@@ -94,8 +98,10 @@ class SyncService
             }
 
             $this->logger->info("Contacts synced: {$count}");
+            return ['count' => $count, 'error' => null];
         } catch (\Throwable $e) {
             $this->logger->error('Failed to sync contacts: ' . $e->getMessage());
+            return ['count' => $count, 'error' => $e->getMessage(), 'trace' => $e->getTraceAsString()];
         }
     }
 
@@ -112,7 +118,7 @@ class SyncService
         throw new \RuntimeException("CRM record {$record['name']} has no status or stage");
     }
 
-    private function syncTickets(string $syncedAt): void
+    private function syncTickets(string $syncedAt): array
     {
         $this->logger->info('Syncing tickets');
         $count     = 0;
@@ -139,8 +145,10 @@ class SyncService
             }
 
             $this->logger->info("Tickets synced: {$count}");
+            return ['count' => $count, 'error' => null];
         } catch (\Throwable $e) {
             $this->logger->error('Failed to sync tickets: ' . $e->getMessage());
+            return ['count' => $count, 'error' => $e->getMessage(), 'trace' => $e->getTraceAsString()];
         }
     }
 
