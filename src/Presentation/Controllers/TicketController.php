@@ -15,10 +15,10 @@ class TicketController
     {
         $page     = max(1, (int) ($_GET['page']      ?? 1));
         $limit    = min(100, max(1, (int) ($_GET['limit'] ?? 20)));
-        $statusId = isset($_GET['status_id']) ? (int) $_GET['status_id'] : null;
+        $statusId = $_GET['status_id'] ?? null;
 
-        $items = $this->repo->findAll($page, $limit, $statusId);
-        $total = $this->repo->count($statusId);
+        $items = $this->repo->findAll($page, $limit, $statusId ? (int) $statusId : null);
+        $total = $this->repo->count($statusId ? (int) $statusId : null);
 
         $this->json([
             'data' => $items,
@@ -33,7 +33,7 @@ class TicketController
 
     public function show(array $params): void
     {
-        $ticket = $this->repo->findById((int) $params['id']);
+        $ticket = $this->repo->findByExternalId($params['id']);
 
         if ($ticket === null) {
             $this->json(['error' => 'Not found'], 404);

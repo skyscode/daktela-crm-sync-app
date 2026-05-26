@@ -34,7 +34,7 @@ class ContactController
 
     public function show(array $params): void
     {
-        $contact = $this->repo->findById((int) $params['id']);
+        $contact = $this->repo->findByExternalId($params['id']);
 
         if ($contact === null) {
             $this->json(['error' => 'Not found'], 404);
