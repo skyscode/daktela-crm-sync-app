@@ -22,22 +22,8 @@ use App\Infrastructure\External\DaktelaApiClient;
 use Monolog\Logger;
 use Monolog\Handler\StreamHandler;
 
-// Run schema migrations on every boot
 $pdo = App\Infrastructure\Database::connection($config['db']);
-$pdo->exec(file_get_contents(__DIR__ . '/../../database/scheme.sql'));
-
-// Add type column to statuses if it doesn't exist (for existing deployments)
-try { $pdo->exec("ALTER TABLE statuses ADD COLUMN type ENUM('contact','ticket') NULL"); } catch (\PDOException $e) {}
-try { $pdo->exec("ALTER TABLE statuses ADD INDEX idx_statuses_type (type)"); } catch (\PDOException $e) {}
-
-// Triggers enforce the status type business rule at the DB level (DROP + CREATE = idempotent)
-foreach (['trg_contacts_status_type_insert','trg_contacts_status_type_update','trg_tickets_status_type_insert','trg_tickets_status_type_update'] as $t) {
-    $pdo->exec("DROP TRIGGER IF EXISTS {$t}");
-}
-$pdo->exec("CREATE TRIGGER trg_contacts_status_type_insert BEFORE INSERT ON contacts FOR EACH ROW BEGIN DECLARE v_type VARCHAR(20); IF NEW.status_id IS NOT NULL THEN SELECT type INTO v_type FROM statuses WHERE id = NEW.status_id; IF v_type IS NULL OR v_type != 'contact' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Contact status_id must reference a status of type=contact'; END IF; END IF; END");
-$pdo->exec("CREATE TRIGGER trg_contacts_status_type_update BEFORE UPDATE ON contacts FOR EACH ROW BEGIN DECLARE v_type VARCHAR(20); IF NEW.status_id IS NOT NULL THEN SELECT type INTO v_type FROM statuses WHERE id = NEW.status_id; IF v_type IS NULL OR v_type != 'contact' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Contact status_id must reference a status of type=contact'; END IF; END IF; END");
-$pdo->exec("CREATE TRIGGER trg_tickets_status_type_insert BEFORE INSERT ON tickets FOR EACH ROW BEGIN DECLARE v_type VARCHAR(20); IF NEW.status_id IS NOT NULL THEN SELECT type INTO v_type FROM statuses WHERE id = NEW.status_id; IF v_type IS NULL OR v_type != 'ticket' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Ticket status_id must reference a status of type=ticket'; END IF; END IF; END");
-$pdo->exec("CREATE TRIGGER trg_tickets_status_type_update BEFORE UPDATE ON tickets FOR EACH ROW BEGIN DECLARE v_type VARCHAR(20); IF NEW.status_id IS NOT NULL THEN SELECT type INTO v_type FROM statuses WHERE id = NEW.status_id; IF v_type IS NULL OR v_type != 'ticket' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Ticket status_id must reference a status of type=ticket'; END IF; END IF; END");
+(new App\Infrastructure\Migrator($pdo))->run();
 
 $contactController = new ContactController(new ContactRepository($config['db']));
 $ticketController  = new TicketController(new TicketRepository($config['db']));
