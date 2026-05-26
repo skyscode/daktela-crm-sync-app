@@ -20,7 +20,6 @@ class Status implements \JsonSerializable
     public function jsonSerialize(): array
     {
         return [
-            'id'          => $this->id,
             'external_id' => $this->externalId,
             'title'       => $this->title,
             'description' => $this->description,
