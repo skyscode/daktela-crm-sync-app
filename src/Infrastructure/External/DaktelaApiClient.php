@@ -52,9 +52,9 @@ class DaktelaApiClient
                 'skip' => ($page - 1) * $limit,
             ]);
 
-            $items   = $response['data'] ?? [];
+            $items   = $response['result']['data'] ?? [];
             $results = array_merge($results, $items);
-            $total   = $response['result']['count'] ?? 0;
+            $total   = $response['result']['total'] ?? 0;
             $page++;
         } while (count($results) < $total);
 
