@@ -46,9 +46,10 @@ $router->add('GET', '/api/debug', function () use ($config) {
     ]);
 
     $endpoint = $_GET['endpoint'] ?? 'contacts.json';
+    $extra    = array_diff_key($_GET, array_flip(['endpoint']));
     try {
         $response = $client->get($endpoint, [
-            'query' => ['accessToken' => $config['daktela']['access_token'], 'take' => 1, 'skip' => 0],
+            'query' => array_merge(['accessToken' => $config['daktela']['access_token'], 'take' => 1, 'skip' => 0], $extra),
         ]);
         $body = json_decode($response->getBody()->getContents(), true);
     } catch (\Throwable $e) {
