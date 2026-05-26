@@ -16,6 +16,11 @@ use App\Infrastructure\Persistence\StatusRepository;
 use App\Presentation\Controllers\ContactController;
 use App\Presentation\Controllers\TicketController;
 use App\Presentation\Controllers\StatusController;
+// SyncService and its dependencies — used by the /api/sync endpoint to trigger a manual sync
+use App\Application\SyncService;
+use App\Infrastructure\External\DaktelaApiClient;
+use Monolog\Logger;
+use Monolog\Handler\StreamHandler;
 
 // Run schema migrations on every boot — safe because all statements use IF NOT EXISTS
 $pdo = App\Infrastructure\Database::connection($config['db']);
@@ -32,5 +37,25 @@ $router->add('GET', '/api/contacts/{id}',  [$contactController, 'show']);
 $router->add('GET', '/api/tickets',        [$ticketController,  'index']);
 $router->add('GET', '/api/tickets/{id}',   [$ticketController,  'show']);
 $router->add('GET', '/api/statuses',       [$statusController,  'index']);
+
+// Manual sync trigger — hits Daktela API and upserts all entities into the DB immediately
+$router->add('POST', '/api/sync', function () use ($config) {
+    $logger = new Logger('sync');
+    $logger->pushHandler(new StreamHandler('php://stdout', \Monolog\Level::Info));
+
+    $sync = new SyncService(
+        new DaktelaApiClient($config['daktela']),
+        new ContactRepository($config['db']),
+        new TicketRepository($config['db']),
+        new StatusRepository($config['db']),
+        $logger,
+    );
+
+    $sync->run();
+
+    http_response_code(200);
+    header('Content-Type: application/json');
+    echo json_encode(['message' => 'Sync completed']);
+});
 
 $router->dispatch();
