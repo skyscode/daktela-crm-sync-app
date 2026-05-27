@@ -32,6 +32,7 @@ class ApiTest extends TestCase
                 external_id TEXT NOT NULL UNIQUE,
                 title       TEXT NOT NULL,
                 description TEXT,
+                type        TEXT,
                 created_at  TEXT NOT NULL,
                 updated_at  TEXT NOT NULL,
                 synced_at   TEXT NOT NULL
@@ -83,12 +84,12 @@ class ApiTest extends TestCase
         ")->execute(['external_id' => $externalId, 'title' => $title]);
     }
 
-    private function insertStatus(string $externalId, string $title): void
+    private function insertStatus(string $externalId, string $title, string $type = 'contact'): void
     {
         $this->pdo->prepare("
-            INSERT INTO statuses (external_id, title, description, created_at, updated_at, synced_at)
-            VALUES (:external_id, :title, NULL, '2024-01-01 00:00:00', '2024-01-01 00:00:00', '2024-01-01 00:00:00')
-        ")->execute(['external_id' => $externalId, 'title' => $title]);
+            INSERT INTO statuses (external_id, title, description, type, created_at, updated_at, synced_at)
+            VALUES (:external_id, :title, NULL, :type, '2024-01-01 00:00:00', '2024-01-01 00:00:00', '2024-01-01 00:00:00')
+        ")->execute(['external_id' => $externalId, 'title' => $title, 'type' => $type]);
     }
 
     // --- ContactRepository ---
@@ -103,25 +104,25 @@ class ApiTest extends TestCase
         $results = $repo->findAll(page: 1, limit: 2);
 
         $this->assertCount(2, $results);
-        $this->assertSame('Alice', $results[0]->title);
+        $this->assertSame('Alice', $results[0]['title']);
     }
 
-    public function testContactFindByIdReturnsContact(): void
+    public function testContactFindByExternalIdReturnsContact(): void
     {
         $this->insertContact('c1', 'Alice');
 
         $repo    = new ContactRepository();
-        $contact = $repo->findById(1);
+        $contact = $repo->findByExternalId('c1');
 
         $this->assertNotNull($contact);
-        $this->assertSame('Alice', $contact->title);
+        $this->assertSame('Alice', $contact['title']);
     }
 
-    public function testContactFindByIdReturnsNullForUnknownId(): void
+    public function testContactFindByExternalIdReturnsNullForUnknownId(): void
     {
         $repo = new ContactRepository();
 
-        $this->assertNull($repo->findById(999));
+        $this->assertNull($repo->findByExternalId('does-not-exist'));
     }
 
     public function testContactCountReturnsTotal(): void
@@ -147,22 +148,22 @@ class ApiTest extends TestCase
         $this->assertCount(2, $results);
     }
 
-    public function testTicketFindByIdReturnsTicket(): void
+    public function testTicketFindByExternalIdReturnsTicket(): void
     {
         $this->insertTicket('t1', 'Issue A');
 
         $repo   = new TicketRepository();
-        $ticket = $repo->findById(1);
+        $ticket = $repo->findByExternalId('t1');
 
         $this->assertNotNull($ticket);
-        $this->assertSame('Issue A', $ticket->title);
+        $this->assertSame('Issue A', $ticket['title']);
     }
 
-    public function testTicketFindByIdReturnsNullForUnknownId(): void
+    public function testTicketFindByExternalIdReturnsNullForUnknownId(): void
     {
         $repo = new TicketRepository();
 
-        $this->assertNull($repo->findById(999));
+        $this->assertNull($repo->findByExternalId('does-not-exist'));
     }
 
     public function testTicketCountReturnsTotal(): void
@@ -195,5 +196,17 @@ class ApiTest extends TestCase
         $repo = new StatusRepository();
 
         $this->assertSame(2, $repo->count());
+    }
+
+    public function testStatusFilterByType(): void
+    {
+        $this->insertStatus('s_contact', 'Lead',  'contact');
+        $this->insertStatus('s_ticket',  'Open',  'ticket');
+
+        $repo = new StatusRepository();
+
+        $this->assertSame(1, $repo->count('contact'));
+        $this->assertSame(1, $repo->count('ticket'));
+        $this->assertCount(1, $repo->findAll(1, 20, 'ticket'));
     }
 }

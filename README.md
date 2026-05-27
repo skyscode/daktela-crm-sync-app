@@ -2,8 +2,11 @@
 
 A PHP 8.3 application that syncs contacts, tickets, and statuses from the Daktela CRM/Helpdesk API into a local MySQL database, exposes a read-only REST API over that data, and runs a background daemon that keeps the mirror up to date every hour.
 
-- **Git repository:** _TODO: add URL_
-- **Live API:** _TODO: add URL_
+- **Git repository:** https://github.com/skyscode/daktela-crm-sync-app
+- **Live API base:** https://daktela-crm-sync-app-production.up.railway.app
+  - [`/api/contacts`](https://daktela-crm-sync-app-production.up.railway.app/api/contacts)
+  - [`/api/tickets`](https://daktela-crm-sync-app-production.up.railway.app/api/tickets)
+  - [`/api/statuses`](https://daktela-crm-sync-app-production.up.railway.app/api/statuses)
 
 ---
 
@@ -107,6 +110,16 @@ All responses are JSON. Error responses always include `{"error": "<message>"}`.
 }
 ```
 
+**Filtering** — each list endpoint supports one filter via query parameter:
+
+| Endpoint | Param | Type | Example |
+|---|---|---|---|
+| `GET /api/contacts` | `status_id` | integer | `/api/contacts?status_id=5` |
+| `GET /api/tickets` | `status_id` | integer | `/api/tickets?status_id=19` |
+| `GET /api/statuses` | `type` | `contact` or `ticket` | `/api/statuses?type=ticket` |
+
+Filters combine with pagination — e.g. `/api/contacts?status_id=5&page=2&limit=50` returns page 2 of contacts with status_id=5.
+
 **Status reference shape** — `status_id` is the integer FK to `statuses.id`, matching standard REST convention. Clients can fetch the full status row by ID via `GET /api/statuses` if they need the title/type.
 
 Example contact response:
@@ -202,11 +215,32 @@ The task requires that a ticket cannot have a contact-type status and vice versa
 
 No `POST / PUT / DELETE` endpoints are exposed. The Daktela instance is the system of record. Writing to the local mirror without propagating back would silently diverge from the source and be overwritten on the next sync cycle. Writing back to Daktela would require scoping, auth, and validation work that goes beyond the assessment scope. Read-only keeps the contract clean and honest.
 
+### Background sync daemon
+
+The hourly cadence runs as a long-running PHP process (`daemon.php`), not via cron. This addresses every constraint the task asks for:
+
+- **Signal handling.** `pcntl_signal()` registers `SIGTERM` and `SIGINT` handlers that flip a `$running` flag to false. The sleep loop calls `pcntl_signal_dispatch()` every second, so the process responds to shutdown signals within ~1 second instead of waiting out the full interval. Railway's stop signal and a local `Ctrl+C` both trigger a clean exit.
+- **Memory management.** `gc_collect_cycles()` runs after every sync cycle to force PHP's circular-reference garbage collector. PHP's reference-counting GC handles most allocations automatically; the explicit cycle collection keeps memory flat across hours of operation.
+- **Restart-on-crash.** Each cycle is wrapped in a try/catch — an unhandled exception logs the error and the daemon sleeps until the next interval rather than dying. For full process-level recovery, the platform restarts the process (Railway service restart, `systemd`, Docker `restart: always`).
+- **Idempotent upserts.** Every `INSERT` uses MySQL's `ON DUPLICATE KEY UPDATE` matched on the `UNIQUE` `external_id` column. Re-running the sync 10 times produces the same DB state as one run — no duplicates.
+- **PSR-3 logging via Monolog.** Each cycle logs start, per-entity counts, and end. Errors carry full context (entity type, message, trace). Output goes to both `logs/app.log` (durable on disk) and stdout (captured by Railway's log stream).
+
 ### Resilience strategy
 
 Each of the three sync phases (statuses, contacts, tickets) is wrapped in an independent try/catch. If the tickets phase fails after 200 rows are already upserted, those 200 rows are persisted and the error is logged with full context. The next daemon cycle retries from scratch. This is partial-failure handling: a single broken record or a mid-cycle API timeout does not roll back the work already done.
 
 The daemon itself wraps the entire `SyncService::run()` call in a separate try/catch, so an unhandled exception in one cycle does not kill the process — it logs the error and sleeps until the next interval.
+
+### Testing approach
+
+Two test classes in `tests/` cover the two layers most worth testing:
+
+- **`SyncServiceTest`** — unit-tests the sync orchestration with all dependencies mocked (`DaktelaApiClient`, repositories, `LoggerInterface`). Verifies that `run()` calls each API endpoint once, seeds the 4 ticket-stage statuses, upserts each entity, and that an API failure in one phase doesn't prevent the others from running (partial-failure resilience).
+- **`ApiTest`** — exercises the repositories against an in-memory SQLite database, with fixture rows inserted directly. Covers `findAll` pagination, `findByExternalId` (including the not-found case), `count`, and filtering by `status_id` / `type` — the read path the public REST API depends on.
+
+The split lets the sync logic test stay fast and dependency-free (mocks), while the repository tests prove the SQL behavior without needing a real MySQL or live Daktela credentials.
+
+Run all tests with `vendor/bin/phpunit` (13 tests, 23 assertions, all green).
 
 ### Auto-migration
 
