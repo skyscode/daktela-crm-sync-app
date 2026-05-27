@@ -23,8 +23,9 @@ use Psr\Log\LoggerInterface;
  *                 a status via crc32(external_id) % count(statuses). Deterministic per
  *                 contact (idempotent across sync runs), evenly distributed across the
  *                 18 statuses. Documented in README as a known data-model trade-off.
- *  - /tickets   → support tickets. Status resolution: prefer ticket.statuses[0].name;
- *                 fall back to synthetic 'ticket_stage_<stage>' (type='ticket').
+ *  - /tickets   → support tickets. status_id is resolved from ticket.stage
+ *                 (OPEN/WAIT/CLOSE/ARCHIVE) against the pre-seeded type='ticket'
+ *                 statuses created by syncTicketStatuses().
  */
 class SyncService
 {
@@ -103,8 +104,8 @@ class SyncService
             if ($this->contacts->inTransaction()) {
                 $this->contacts->rollBack();
             }
-            $this->logger->error('Failed to sync contacts: ' . $e->getMessage());
-            return ['count' => $count, 'error' => $e->getMessage(), 'trace' => $e->getTraceAsString()];
+            $this->logger->error('Failed to sync contacts', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            return ['count' => $count, 'error' => $e->getMessage()];
         }
     }
 
@@ -161,8 +162,8 @@ class SyncService
             $this->logger->info("Tickets synced: {$count}");
             return ['count' => $count, 'error' => null];
         } catch (\Throwable $e) {
-            $this->logger->error('Failed to sync tickets: ' . $e->getMessage());
-            return ['count' => $count, 'error' => $e->getMessage(), 'trace' => $e->getTraceAsString()];
+            $this->logger->error('Failed to sync tickets', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            return ['count' => $count, 'error' => $e->getMessage()];
         }
     }
 }

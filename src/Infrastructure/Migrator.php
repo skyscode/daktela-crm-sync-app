@@ -10,9 +10,34 @@ class Migrator
 
     public function run(): void
     {
+        if ($this->isUpToDate()) {
+            return;
+        }
         $this->runSchema();
         $this->addMissingColumns();
         $this->installTriggers();
+    }
+
+    private function isUpToDate(): bool
+    {
+        try {
+            $tables = $this->pdo->query("SHOW TABLES")->fetchAll(\PDO::FETCH_COLUMN);
+            $hasTables = in_array('statuses', $tables, true)
+                && in_array('contacts', $tables, true)
+                && in_array('tickets',  $tables, true);
+
+            if (!$hasTables) {
+                return false;
+            }
+
+            $triggers = (int) $this->pdo
+                ->query("SELECT COUNT(*) FROM information_schema.triggers WHERE trigger_schema = DATABASE() AND trigger_name LIKE 'trg_%_status_type_%'")
+                ->fetchColumn();
+
+            return $triggers === 4;
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     private function runSchema(): void

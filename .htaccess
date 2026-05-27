@@ -35,5 +35,5 @@ Options -Indexes
     RewriteCond %{REQUEST_FILENAME} !-d
 
     # Everything else goes through the front controller
-    RewriteRule ^(.*)$ api/index.php [QSA,L]
+    RewriteRule ^(.*)$ index.php [QSA,L]
 </IfModule>

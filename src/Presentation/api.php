@@ -37,30 +37,6 @@ $router->add('GET', '/api/tickets',        [$ticketController,  'index']);
 $router->add('GET', '/api/tickets/{id}',   [$ticketController,  'show']);
 $router->add('GET', '/api/statuses',       [$statusController,  'index']);
 
-// Debug endpoint — returns raw Daktela API response to verify connectivity and response format
-$router->add('GET', '/api/debug', function () use ($config) {
-    $client = new \GuzzleHttp\Client([
-        'base_uri' => rtrim($config['daktela']['api_url'], '/') . '/',
-        'verify'   => $config['daktela']['verify_ssl'],
-        'timeout'  => 30,
-    ]);
-
-    $endpoint = $_GET['endpoint'] ?? 'contacts.json';
-    $extra    = array_diff_key($_GET, array_flip(['endpoint']));
-    try {
-        $response = $client->get($endpoint, [
-            'query' => array_merge(['accessToken' => $config['daktela']['access_token'], 'take' => 1, 'skip' => 0], $extra),
-        ]);
-        $body = json_decode($response->getBody()->getContents(), true);
-    } catch (\Throwable $e) {
-        $body = ['error' => $e->getMessage()];
-    }
-
-    http_response_code(200);
-    header('Content-Type: application/json');
-    echo json_encode($body);
-});
-
 // Manual sync trigger — hits Daktela API and upserts all entities into the DB immediately
 $router->add('POST', '/api/sync', function () use ($config) {
     $logger = new Logger('sync');
@@ -80,9 +56,10 @@ $router->add('POST', '/api/sync', function () use ($config) {
         header('Content-Type: application/json');
         echo json_encode(['message' => 'Sync completed', 'results' => $results]);
     } catch (\Throwable $e) {
+        $logger->error('Sync endpoint failed', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
         http_response_code(500);
         header('Content-Type: application/json');
-        echo json_encode(['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+        echo json_encode(['error' => 'Sync failed']);
     }
 });
 

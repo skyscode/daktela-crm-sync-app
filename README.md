@@ -99,7 +99,6 @@ All responses are JSON. Error responses always include `{"error": "<message>"}`.
 | Method | Path | Description |
 |---|---|---|
 | POST | `/api/sync` | Trigger an immediate sync; returns counts and any errors |
-| GET | `/api/debug` | Proxy raw Daktela API response for a given `endpoint` param |
 
 **Pagination** — all list endpoints accept `page` (default 1) and `limit` (default 20, max 100). Responses include a `meta` object:
 
