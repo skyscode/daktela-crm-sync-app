@@ -16,6 +16,32 @@ class ContactRepository
         $this->pdo = Database::connection($config);
     }
 
+    public function beginTransaction(): void
+    {
+        if (!$this->pdo->inTransaction()) {
+            $this->pdo->beginTransaction();
+        }
+    }
+
+    public function commit(): void
+    {
+        if ($this->pdo->inTransaction()) {
+            $this->pdo->commit();
+        }
+    }
+
+    public function rollBack(): void
+    {
+        if ($this->pdo->inTransaction()) {
+            $this->pdo->rollBack();
+        }
+    }
+
+    public function inTransaction(): bool
+    {
+        return $this->pdo->inTransaction();
+    }
+
     public function upsert(Contact $contact): void
     {
         $sql = "
@@ -101,7 +127,7 @@ class ContactRepository
             'external_id' => $row['external_id'],
             'title'       => $row['title'],
             'description' => $row['description'],
-            'status_id'   => $row['status_external_id'] ?? null,
+            'status_id'   => isset($row['status_id']) ? (int) $row['status_id'] : null,
             'created_at'  => $row['created_at'],
             'updated_at'  => $row['updated_at'],
             'synced_at'   => $row['synced_at'],

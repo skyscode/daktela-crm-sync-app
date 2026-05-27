@@ -101,7 +101,7 @@ class TicketRepository
             'external_id' => $row['external_id'],
             'title'       => $row['title'],
             'description' => $row['description'],
-            'status_id'   => $row['status_external_id'] ?? null,
+            'status_id'   => isset($row['status_id']) ? (int) $row['status_id'] : null,
             'created_at'  => $row['created_at'],
             'updated_at'  => $row['updated_at'],
             'synced_at'   => $row['synced_at'],

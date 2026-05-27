@@ -25,9 +25,9 @@ class DaktelaApiClient
         ]);
     }
 
-    public function getCrmRecords(): array
+    public function getContacts(): array
     {
-        return $this->fetchAll('crmRecords.json');
+        return $this->fetchAll('contacts.json');
     }
 
     public function getTickets(): array

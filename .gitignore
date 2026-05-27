@@ -24,3 +24,10 @@ logs/*.log
 .DS_Store
 Thumbs.db
 test_db.php
+sync_once.php
+truncate.php
+diagnose.php
+check_contacts.php
+check_dist.php
+count_contacts.php
+.claude/

@@ -58,3 +58,4 @@ class Status implements \JsonSerializable
         );
     }
 }
+
