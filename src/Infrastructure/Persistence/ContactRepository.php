@@ -71,7 +71,7 @@ class ContactRepository
     {
         $stmt = $this->pdo->prepare("
             SELECT c.*,
-                   s.external_id AS status_external_id
+                   s.title AS status_title
             FROM contacts c
             LEFT JOIN statuses s ON s.id = c.status_id
             WHERE c.external_id = :external_id
@@ -99,7 +99,7 @@ class ContactRepository
         $where  = $statusId !== null ? "WHERE c.status_id = :status_id" : "";
         $sql    = "
             SELECT c.*,
-                   s.external_id AS status_external_id
+                   s.title AS status_title
             FROM contacts c
             LEFT JOIN statuses s ON s.id = c.status_id
             {$where}
@@ -127,7 +127,10 @@ class ContactRepository
             'external_id' => $row['external_id'],
             'title'       => $row['title'],
             'description' => $row['description'],
-            'status_id'   => isset($row['status_id']) ? (int) $row['status_id'] : null,
+            'status'      => isset($row['status_id']) ? [
+                'id'    => (int) $row['status_id'],
+                'title' => $row['status_title'] ?? null,
+            ] : null,
             'created_at'  => $row['created_at'],
             'updated_at'  => $row['updated_at'],
             'synced_at'   => $row['synced_at'],

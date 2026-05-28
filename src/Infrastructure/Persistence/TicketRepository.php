@@ -45,7 +45,7 @@ class TicketRepository
     {
         $stmt = $this->pdo->prepare("
             SELECT t.*,
-                   s.external_id AS status_external_id
+                   s.title AS status_title
             FROM tickets t
             LEFT JOIN statuses s ON s.id = t.status_id
             WHERE t.external_id = :external_id
@@ -73,7 +73,7 @@ class TicketRepository
         $where  = $statusId !== null ? "WHERE t.status_id = :status_id" : "";
         $sql    = "
             SELECT t.*,
-                   s.external_id AS status_external_id
+                   s.title AS status_title
             FROM tickets t
             LEFT JOIN statuses s ON s.id = t.status_id
             {$where}
@@ -101,7 +101,10 @@ class TicketRepository
             'external_id' => $row['external_id'],
             'title'       => $row['title'],
             'description' => $row['description'],
-            'status_id'   => isset($row['status_id']) ? (int) $row['status_id'] : null,
+            'status'      => isset($row['status_id']) ? [
+                'id'    => (int) $row['status_id'],
+                'title' => $row['status_title'] ?? null,
+            ] : null,
             'created_at'  => $row['created_at'],
             'updated_at'  => $row['updated_at'],
             'synced_at'   => $row['synced_at'],
